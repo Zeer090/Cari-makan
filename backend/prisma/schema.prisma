@@ -1,0 +1,125 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String   @id @default(uuid())
+  google_id     String?  @unique
+  name          String
+  email         String   @unique
+  password_hash String?
+  role          String   @default("customer") // admin, customer, restaurant_owner
+  phone         String?
+  address       String?
+  created_at    DateTime @default(now())
+
+  restaurants   Restaurant[] // if role is restaurant_owner
+  orders        Order[]
+  reviews       Review[]
+  favorites     Favorite[]
+}
+
+model Restaurant {
+  id           String   @id @default(uuid())
+  owner_id     String
+  name         String
+  description  String?
+  address      String
+  category     String?
+  image_url    String?
+  is_verified  Boolean  @default(false)
+  rating       Float    @default(0.0)
+
+  owner        User     @relation(fields: [owner_id], references: [id])
+  menus        Menu[]
+  orders       Order[]
+  reviews      Review[]
+  favorited_by Favorite[]
+}
+
+model Menu {
+  id            String   @id @default(uuid())
+  restaurant_id String
+  name          String
+  description   String?
+  price         Decimal
+  image_url     String?
+  is_available  Boolean  @default(true)
+
+  restaurant    Restaurant @relation(fields: [restaurant_id], references: [id])
+  order_items   OrderItem[]
+}
+
+model Order {
+  id             String   @id @default(uuid())
+  user_id        String
+  restaurant_id  String
+  status         String   @default("pending") // pending, processing, shipped, completed, cancelled
+  total_price    Decimal
+  payment_status String   @default("unpaid") // unpaid, paid, failed, expired
+  payment_method String?
+  created_at     DateTime @default(now())
+
+  user           User        @relation(fields: [user_id], references: [id])
+  restaurant     Restaurant  @relation(fields: [restaurant_id], references: [id])
+  items          OrderItem[]
+  payment        Payment?
+  review         Review?
+}
+
+model OrderItem {
+  id             String   @id @default(uuid())
+  order_id       String
+  menu_id        String
+  quantity       Int
+  price_at_order Decimal
+
+  order          Order @relation(fields: [order_id], references: [id])
+  menu           Menu  @relation(fields: [menu_id], references: [id])
+}
+
+model Payment {
+  id                      String   @id @default(uuid())
+  order_id                String   @unique
+  midtrans_transaction_id String?
+  gross_amount            Decimal
+  payment_type            String?
+  transaction_status      String
+  paid_at                 DateTime?
+
+  order                   Order @relation(fields: [order_id], references: [id])
+}
+
+model Review {
+  id            String   @id @default(uuid())
+  order_id      String   @unique
+  user_id       String
+  restaurant_id String
+  rating        Int
+  comment       String?
+  created_at    DateTime @default(now())
+
+  order         Order      @relation(fields: [order_id], references: [id])
+  user          User       @relation(fields: [user_id], references: [id])
+  restaurant    Restaurant @relation(fields: [restaurant_id], references: [id])
+}
+
+model Favorite {
+  id            String   @id @default(uuid())
+  user_id       String
+  restaurant_id String
+  created_at    DateTime @default(now())
+
+  user          User       @relation(fields: [user_id], references: [id])
+  restaurant    Restaurant @relation(fields: [restaurant_id], references: [id])
+
+  @@unique([user_id, restaurant_id])
+}
